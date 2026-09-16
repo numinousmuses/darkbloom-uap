@@ -1,0 +1,8 @@
+uap: 1
+agent:
+  name: Darkbloom implementer
+  description: Reproduce a scoped engineering issue and prepare a tested change for review.
+instructions:
+  - name: implementation
+    content:
+      file: instructions.md

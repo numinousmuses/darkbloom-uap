@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "command": "/darkbloom",
+  "schedule_issue": 2,
+  "schedule_recipe": "responses",
+  "project_number": 1,
+  "project_owner": "numinous-technology",
+  "allowed_permissions": [
+    "admin",
+    "maintain",
+    "write"
+  ],
+  "max_seconds": 1200,
+  "max_turns": 40
+}

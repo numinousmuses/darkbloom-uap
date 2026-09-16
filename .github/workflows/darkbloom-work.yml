@@ -1,0 +1,180 @@
+name: Darkbloom work
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review]
+  issue_comment:
+    types: [created]
+  schedule:
+    - cron: '20 8 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: Issue or PR number
+        required: true
+      mode:
+        type: choice
+        options: [review, fix]
+        default: review
+      recipe:
+        type: choice
+        options: [protocol, responses, coordinator, release-scripts]
+        default: coordinator
+      trigger:
+        type: choice
+        options: [instructed, schedule]
+        default: instructed
+
+permissions:
+  contents: read
+
+# One writer across all entrypoints. Ordinary comments are rejected in admission.
+concurrency:
+  group: darkbloom-work
+  cancel-in-progress: false
+  queue: max
+
+jobs:
+  admit:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    outputs:
+      accepted: ${{ steps.prepare.outputs.accepted }}
+      source: ${{ steps.prepare.outputs.source }}
+      recipe: ${{ steps.prepare.outputs.recipe }}
+      role: ${{ steps.prepare.outputs.role }}
+      blocked: ${{ steps.prepare.outputs.blocked }}
+      policy_sha: ${{ steps.prepare.outputs.policy_sha }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - id: prepare
+        run: python3 -m automation.workflow prepare
+        env:
+          PYTHONPATH: .automation
+          GH_TOKEN: ${{ github.token }}
+      - if: steps.prepare.outputs.accepted == 'true'
+        run: python3 -m automation report --request request.json --status working --summary 'I am inspecting the requested revision and running the accepted checks. This comment will update with the result.' --next 'Wait for verification; no merge decision is needed yet.'
+        env:
+          PYTHONPATH: .automation
+          GH_TOKEN: ${{ github.token }}
+      - if: steps.prepare.outputs.accepted == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: request
+          path: request.json
+          retention-days: 30
+
+  work:
+    needs: admit
+    if: needs.admit.outputs.accepted == 'true' && needs.admit.outputs.blocked == 'false'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ needs.admit.outputs.policy_sha }}
+          path: integration
+          persist-credentials: false
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ needs.admit.outputs.source }}
+          fetch-depth: 0
+          path: candidate
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: request
+      - uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34
+        with:
+          go-version-file: candidate/go.mod
+          cache: false
+      - run: npm ci --ignore-scripts && npm run validate && python3 -m unittest discover -s tests
+        working-directory: integration/.automation
+      - run: GOMODCACHE="$HOME/.cache/darkbloom-agent/go-mod" go mod download
+        working-directory: candidate
+      - run: docker build -t darkbloom-uap:local integration/.automation
+      - name: Execute portable agent
+        run: python3 -m automation execute --request request.json --repo-path candidate --out result
+        env:
+          PYTHONPATH: integration/.automation
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      - name: Independently verify candidate
+        run: python3 -m automation verify --request request.json --repo-path candidate --patch result/candidate.patch --recipe "$RECIPE" --out result
+        env:
+          PYTHONPATH: integration/.automation
+          RECIPE: ${{ needs.admit.outputs.recipe }}
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: result
+          path: |
+            result/candidate.patch
+            result/summary.md
+            result/verification.json
+            result/verification.log
+            result/accepted-tests.log
+          if-no-files-found: ignore
+          retention-days: 30
+
+  report:
+    needs: [admit, work]
+    if: always() && needs.admit.outputs.accepted == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      actions: write
+      statuses: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ needs.admit.outputs.policy_sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: request
+      - if: needs.admit.outputs.blocked == 'false'
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: result
+          path: result
+      - if: needs.work.result == 'success' && needs.admit.outputs.role == 'implementer'
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ needs.admit.outputs.source }}
+          path: candidate
+          persist-credentials: false
+      - if: needs.work.result == 'success' && needs.admit.outputs.role == 'implementer'
+        run: python3 -m automation.workflow publish
+        env:
+          PYTHONPATH: .automation
+          GH_TOKEN: ${{ github.token }}
+      - name: Update the status comment
+        if: always()
+        run: python3 -m automation.workflow finish
+        env:
+          PYTHONPATH: .automation
+          GH_TOKEN: ${{ github.token }}
+          WORK_RESULT: ${{ needs.work.result }}
+          JOB_STATUS: ${{ job.status }}
+      - name: Require complete verification
+        if: always()
+        run: python3 -c 'import json; from pathlib import Path; s=json.loads(Path("final-state.json").read_text()); assert s.get("superseded") or s["status"] == "passed", "Verification is not complete"'
+      - name: Update the Project card
+        if: always()
+        run: python3 -m automation.workflow project
+        env:
+          PYTHONPATH: .automation
+          GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+          WORK_RESULT: ${{ needs.work.result }}
+          JOB_STATUS: ${{ job.status }}

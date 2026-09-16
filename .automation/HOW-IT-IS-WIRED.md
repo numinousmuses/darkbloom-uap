@@ -1,0 +1,56 @@
+# Execution and verification
+
+The workflow calls `admission.admit`, `sandbox.execute`, `verification.verify`,
+and `workflow.finish`. GitHub Actions stores attempts and artifacts. No daemon or
+database is required. The official UAP CLI validates the selected bundle and
+renders its instructions before execution.
+
+Admission queries the requester's current repository permission for explicit
+commands. Public PRs enter CI regardless of their author's membership. The
+request records source, head and base commits, trigger, instruction, and policy
+digest. The workflow pins integration code to the admission checkout revision.
+
+The agent container has a writable source export, read-only baseline and module
+cache, no network, no Docker socket, no GitHub credential, a read-only root, and
+bounded memory, CPU, process count and lifetime. A per-run Unix socket exposes
+only the allowed model endpoints. Authentication remains in the host process;
+the container receives a dummy credential. The connection has model, body-size,
+output-token and request-count limits. These limits are not a monetary budget.
+
+The agent leaves files, not commits. The host computes a patch using separate
+Git metadata. It rejects changes to automation, workflow, and repository policy
+files. A second container starts from the original source and applies the patch.
+It runs a fixed verification recipe with no model connection. A receipt records
+the source revision, patch digest, command, exit code, and conclusion.
+
+Only the publication job has GitHub write permissions. It checks the receipt
+and patch digest, creates a signed commit and draft PR, then explicitly requests
+verification of the published revision. GitHub does not recursively trigger PR
+workflows for PRs created by its workflow token. Agent review findings remain
+advisory even when deterministic tests pass.
+
+One serialized workflow owns comments. It finds the marker only on comments
+authored by its configured identity and edits that comment. It refuses duplicate
+owned comments and ignores older run updates. A lost create response triggers
+lookup, never an immediate second create. If lookup remains inconclusive, the
+failed run requires operator reconciliation before retrying publication. GitHub
+does not offer transactional create-if-absent comments. A canceled whole workflow
+can leave an in-progress comment until the next run; this is not yet an automatic
+recovery service.
+
+The Project is a projection, not a queue. Its update runs independently of the
+comment update and needs a credential with organization Project access. A failed
+Project update fails the reporting job without rerunning the agent.
+
+The accepted recipes currently cover coordinator packages, Responses handlers,
+protocol tests and release-resolution script tests. Provider, sidecar and UI
+changes are blocked pending their required environments. Passing one recipe
+does not establish full-repository or production correctness. Database-backed
+coverage requires its own configured database lane. Production deployment and
+release workflows are not part of this contribution integration.
+
+For Brainbase, retain the UAP bundles, request identity, verification recipes,
+and sole GitHub publisher. Replace the container launch with the documented
+workspace execution API, and prove candidate export, cancellation, and retries
+against the real workspace before enabling it. No automatic UAP-to-workspace
+import or migration of running sessions is assumed.

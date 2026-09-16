@@ -1,0 +1,8 @@
+uap: 1
+agent:
+  name: Darkbloom reviewer
+  description: Inspect a pinned change for actionable correctness and regression findings.
+instructions:
+  - name: review
+    content:
+      file: instructions.md

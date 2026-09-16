@@ -1,0 +1,8 @@
+{
+  "name": "darkbloom-agent-bundles",
+  "private": true,
+  "devDependencies": {"uap-protocol": "0.1.1"},
+  "scripts": {
+    "validate": "uap validate bundles/implementer --strict && uap validate bundles/reviewer --strict"
+  }
+}

@@ -1,6 +1,6 @@
 # Build
 
-> Last updated: 2026-09-15 · commit `53e537e4f`
+> Last updated: 2026-09-16 · commit `0f7b1e611`
 
 How to build every component of Darkbloom from a fresh clone: the Go
 coordinator, the Rust prompt-contract sidecar, the Swift provider CLI (with its
@@ -532,3 +532,11 @@ Candidate native prefix-cache benchmarks must build ProviderCore and
 prompt SPI carries production sampling parameters into each engine request.
 See [native benchmark validation](test.md#resident-prefix-benchmark-validation)
 for sampling scope, regression filters and diagnostic restrictions.
+
+## Contribution automation
+
+The contribution workspace uses [portable agent bundles](../../.automation/README.md)
+and separate verification for GitHub-triggered work. Its integration tests run with
+`cd .automation && python3 -m unittest discover -s tests -v`; bundle validation runs
+with `cd .automation && npm ci --ignore-scripts && npm run validate`.
+These checks do not replace the component suites documented above.

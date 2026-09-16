@@ -1,5 +1,7 @@
 # Darkbloom
 
+> Contribution workspace for [Layr-Labs/d-inference](https://github.com/Layr-Labs/d-inference). See [how engineering work runs here](.automation/README.md) and the [work board](https://github.com/orgs/numinous-technology/projects/1/views/2).
+
 > **Public Alpha** — Darkbloom is a decentralized private-inference network for Apple Silicon. Expect rough edges, breaking changes, and downtime. Alpha pricing, the platform fee and payout rules are stated once, in [billing](docs/architecture/billing.md#invariants).
 
 Darkbloom turns idle Macs into a private, OpenAI-compatible inference cloud.

@@ -1,6 +1,6 @@
 # Test
 
-> Last updated: 2026-09-15 · commit `1fee36798`
+> Last updated: 2026-09-16 · commit `0f7b1e611`
 
 How to run the unit tests for each component, the end-to-end suite that boots a
 real coordinator + Swift provider against ephemeral Postgres, and the docs
@@ -1611,3 +1611,11 @@ from real Apple receipt renewal and final signed-artifact fleet qualification.
 - [`../operations/provider-release.md`](../operations/provider-release.md) — release checks that also run in CI.
 - [`../architecture/components/provider.md`](../architecture/components/provider.md) — what the provider does at runtime.
 - [`../architecture/prompt-contract-sidecar.md`](../architecture/prompt-contract-sidecar.md) — what prompt parity protects.
+
+## Contribution automation
+
+The contribution workspace uses [portable agent bundles](../../.automation/README.md)
+and separate verification for GitHub-triggered work. Its integration tests run with
+`cd .automation && python3 -m unittest discover -s tests -v`; bundle validation runs
+with `cd .automation && npm ci --ignore-scripts && npm run validate`.
+These checks do not replace the component suites documented above.
