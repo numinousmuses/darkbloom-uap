@@ -19,7 +19,9 @@ def api(path, data=None, method=None):
     if method:
         command += ["--method", method]
     result = subprocess.run(command, input=json.dumps(data) if data is not None else None,
-                            capture_output=True, text=True, check=True)
+                            capture_output=True, text=True)
+    if result.returncode:
+        raise RuntimeError(f"GitHub {method or ('POST' if data is not None else 'GET')} {path}: {result.stderr.strip()[:500]}")
     return json.loads(result.stdout) if result.stdout.strip() else None
 
 
@@ -90,7 +92,7 @@ def upsert_status(repo, thread, state, author, *, call=api, list_comments=None):
     call(f"repos/{repo}/issues/{thread}/labels", {"labels": [CREATING]}, "POST")
     try:
         comment = call(f"repos/{repo}/issues/{thread}/comments", {"body": render(state)}, "POST")
-    except (subprocess.CalledProcessError, OSError):
+    except (subprocess.CalledProcessError, OSError, RuntimeError):
         # Never retry a create whose result is uncertain. An operator can reconcile
         # the failed Actions run after GitHub recovers; edits remain retryable.
         owned = [c for c in listing() if c["user"]["login"] == author and MARKER in (c.get("body") or "")]

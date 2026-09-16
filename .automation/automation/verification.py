@@ -16,6 +16,10 @@ RECIPES = {
     "release-scripts": ["python3", "scripts/test-provider-release-resolution.py"],
 }
 
+# Metrics assertions describe application tags, not the runner's container ID.
+TEST_ENV = [("GOMODCACHE", "/gomod"), ("GOPROXY", "off"), ("GOTOOLCHAIN", "local"),
+            ("GOSUMDB", "off"), ("DD_ORIGIN_DETECTION_ENABLED", "false")]
+
 
 def require_coverage(paths, recipe):
     prefixes = {"protocol": ("coordinator/protocol/",), "responses": ("coordinator/api/", "coordinator/promptcontract/"),
@@ -60,8 +64,7 @@ def verify(repo, source, patch, recipe, output, timeout=1200, baseline=None):
         modcache = module_cache()
         mounts = [(modcache, "/gomod")] if modcache.exists() else []
         result = docker(workspace, command, mounts=mounts, timeout=timeout,
-                        environment=[("GOMODCACHE", "/gomod"), ("GOPROXY", "off"),
-                                     ("GOTOOLCHAIN", "local"), ("GOSUMDB", "off")],
+                        environment=TEST_ENV,
                         log=output / "verification.log")
         baseline_exit = None
         if recipe != "release-scripts" and result.returncode == 0:
@@ -85,8 +88,7 @@ def verify(repo, source, patch, recipe, output, timeout=1200, baseline=None):
             baseline_exit = 0
             if changed_tests:
                 preserved = docker(workspace, command, mounts=mounts, timeout=timeout,
-                                   environment=[("GOMODCACHE", "/gomod"), ("GOPROXY", "off"),
-                                                ("GOTOOLCHAIN", "local"), ("GOSUMDB", "off")],
+                                   environment=TEST_ENV,
                                    log=output / "accepted-tests.log")
                 baseline_exit = preserved.returncode
     receipt = {"schema": 1, "source": source, "patch_sha256": hashlib.sha256(patch_bytes).hexdigest(),

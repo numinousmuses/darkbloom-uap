@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import subprocess
 from pathlib import Path
 import sys
@@ -81,6 +82,16 @@ def final_state():
         checks = ["`" + " ".join(receipt["command"]) + "`: " + receipt["conclusion"]]
         if receipt["conclusion"] == "failed":
             summary = "The independent check failed. The candidate has not been published as a verified change."
+            failures = []
+            for name in ("verification.log", "accepted-tests.log"):
+                log = Path("result") / name
+                if log.exists():
+                    failures.extend(re.findall(r"^--- FAIL: ([\w/]+)", log.read_text(errors="replace"), re.MULTILINE))
+            if failures:
+                summary += "\n\nFailing tests: " + ", ".join(f"`{name}`" for name in dict.fromkeys(failures))[:1200] + "."
+            findings = Path("result/summary.md")
+            if findings.exists():
+                summary += "\n\n<details><summary>Agent findings, pending verification</summary>\n\n" + findings.read_text()[:5000].replace("@", "@\u200b") + "\n\n</details>"
     if request.get("blocked"):
         status, summary = "blocked", request["blocked"]
         next_step = "Add the required verification environment before merging."
@@ -91,6 +102,8 @@ def final_state():
         status = "passed"
         checks = ["`" + " ".join(receipt["command"]) + "`: passed"]
         summary = Path("result/summary.md").read_text()[:5000].replace("@", "@\u200b")
+        if request["role"] == "reviewer":
+            summary = "Agent assessment follows. Independently rerun checks are listed below.\n\n" + summary
         next_step = "Review the findings and diff. Passing tests do not replace a maintainer's merge decision."
         if Path("result/pr.json").exists():
             pr = json.loads(Path("result/pr.json").read_text())

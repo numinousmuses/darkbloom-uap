@@ -11,6 +11,28 @@ from automation import workflow
 
 
 class WorkflowTests(unittest.TestCase):
+    def test_failed_check_keeps_findings_and_test_names_in_comment(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            original = os.getcwd()
+            try:
+                os.chdir(tmp)
+                Path("result").mkdir()
+                Path("request.json").write_text(json.dumps({"repo": "owner/repo", "source": "a" * 40,
+                    "trigger": "schedule", "thread": 2, "is_pr": False}))
+                Path("result/verification.json").write_text(json.dumps({"source": "a" * 40,
+                    "command": ["go", "test"], "conclusion": "failed"}))
+                Path("result/verification.log").write_text("--- FAIL: TestMetrics (0.01s)\nprivate log detail\n")
+                Path("result/summary.md").write_text("Instructions are missing from the prompt.")
+                with patch.dict(os.environ, {"WORK_RESULT": "failure", "GITHUB_RUN_ID": "42"}), \
+                     patch.object(workflow, "current", return_value=True):
+                    state = workflow.final_state()
+                self.assertEqual(state["status"], "failed")
+                self.assertIn("TestMetrics", state["summary"])
+                self.assertIn("Instructions are missing", state["summary"])
+                self.assertNotIn("private log detail", state["summary"])
+            finally:
+                os.chdir(original)
+
     def test_superseded_run_cannot_regress_commit_or_project_state(self):
         state = {"repo": "owner/repo", "thread": 1, "order": 5, "status": "failed",
                  "trigger": "ci", "request_id": "old", "source": "a" * 40, "is_pr": True}

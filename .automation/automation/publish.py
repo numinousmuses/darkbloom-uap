@@ -86,9 +86,7 @@ def candidate_pr(repo_path, request, patch, receipt_path, summary_path=None):
     body = (f"Addresses #{request['thread']}.\n\n" + summary + "\n\n"
             "Changed files:\n" + "\n".join(f"- `{p}`" for p in paths) + "\n\n"
             f"Independent verification: `{' '.join(receipt['command'])}` passed against the source revision plus this exact patch. "
-            "The published commit receives its own CI run. Review the behavior and test coverage before merging.\n\n"
-            "```mermaid\nflowchart LR\n subgraph Before\n A[Requested behavior] --> B[Original implementation and tests]\n end\n"
-            " subgraph After\n D[Same behavior] --> E[Changed code and regression coverage]\n E --> F[Independent checks]\n F --> G[Maintainer review]\n end\n```\n")
+            "The published commit receives its own CI run. Review the behavior and test coverage before merging.\n")
     default = api(f"repos/{repo}")["default_branch"]
     pr = api(f"repos/{repo}/pulls", {"title": title, "body": body, "head": branch, "base": default, "draft": True})
     api(f"repos/{repo}/issues/{pr['number']}/labels", {"labels": ["trigger:" + request["trigger"]]})
