@@ -61,7 +61,7 @@ def admit(event, event_name, repo, policy, *, call=api):
         return None
     issue = call(f"repos/{repo}/issues/{thread}")
     origin = next((label["name"].split(":", 1)[1] for label in issue.get("labels", [])
-                   if label["name"] in ("trigger:instructed", "trigger:schedule")), trigger)
+                   if label["name"] in ("trigger:ci", "trigger:instructed", "trigger:schedule")), trigger)
     pr = call(f"repos/{repo}/pulls/{thread}") if issue.get("pull_request") else None
     if internal_review and (not pr or pr["head"].get("repo", {}).get("full_name") != repo
                             or not pr["head"].get("ref", "").startswith("automation/task-")):

@@ -52,6 +52,16 @@ class AdmissionTests(unittest.TestCase):
         self.assertEqual(result["trigger"], "ci")
         self.assertEqual(result["role"], "reviewer")
 
+    def test_fix_keeps_original_pr_classification(self):
+        def call(path):
+            result = self.call(path)
+            if "/issues/" in path:
+                result["labels"] = [{"name": "trigger:ci"}]
+            return result
+        result = admit(self.event(), "issue_comment", "owner/repo", POLICY, call=call)
+        self.assertEqual(result["trigger"], "instructed")
+        self.assertEqual(result["origin"], "ci")
+
     def test_changed_head_or_base_invalidates_result(self):
         request = admit(self.event(), "issue_comment", "owner/repo", POLICY, call=self.call)
         self.assertTrue(current(request, call=self.call))

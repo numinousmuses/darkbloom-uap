@@ -80,8 +80,8 @@ def upsert_status(repo, thread, state, author, *, call=api, list_comments=None):
         if old.get("order") != state["order"] and old.get("run_url"):
             history = [{k: old[k] for k in ("status", "source", "run_url")}, *history][:5]
         state = {**state, "history": history}
-        # CI verifies an agent-created PR without erasing why the work was created.
-        if old.get("trigger") in ("instructed", "schedule") and state["trigger"] == "ci":
+        # Later commands and checks do not change why the thread was created.
+        if old.get("trigger") in ("ci", "instructed", "schedule"):
             state = {**state, "trigger": old["trigger"]}
         return call(f"repos/{repo}/issues/comments/{owned[0]['id']}", {"body": render(state)}, "PATCH")
     labels = call(f"repos/{repo}/issues/{thread}/labels", None, "GET")
