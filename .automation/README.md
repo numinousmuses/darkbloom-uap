@@ -43,6 +43,17 @@ npm run validate
 python3 -m unittest discover -s tests -v
 ```
 
+To exercise the verifier against a candidate that hides a failing regression,
+build the sandbox image and run the integration proof from the repository root:
+
+```sh
+docker build -t darkbloom-uap:local .automation
+PYTHONPATH=.automation python3 .automation/tests/prove_verifier.py --out /tmp/darkbloom-verifier-proof
+```
+
+The candidate's skipped test passes, but the restored accepted test must fail.
+The proof exits successfully only when verification rejects the candidate.
+
 The integration currently runs through GitHub Actions. Brainbase workspace
 execution is not connected yet. UAP bundles are portable configuration; moving
 execution still requires checking the workspace's credentials, artifact access,
