@@ -69,6 +69,11 @@ jobs:
           name: request
           path: request.json
           retention-days: 30
+      - if: steps.prepare.outputs.accepted == 'true'
+        run: python3 -m automation.workflow start-project
+        env:
+          PYTHONPATH: .automation
+          GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
 
   work:
     needs: admit
@@ -121,6 +126,7 @@ jobs:
             result/verification.json
             result/verification.log
             result/accepted-tests.log
+            result/failure.json
           if-no-files-found: ignore
           retention-days: 30
 

@@ -25,7 +25,7 @@ def prepare():
     output.write_text(json.dumps(request, indent=2) + "\n")
     values = {"accepted": "false"}
     if request:
-        recipe = event.get("inputs", {}).get("recipe") or "coordinator"
+        recipe = event.get("inputs", {}).get("recipe") or ("affected" if request["role"] == "implementer" else "coordinator")
         blocked = ""
         if request["is_pr"]:
             files = pages(f"repos/{request['repo']}/pulls/{request['thread']}/files")
@@ -46,6 +46,8 @@ def prepare():
         values = {"accepted": "true", "source": request["source"], "thread": request["thread"],
                   "role": request["role"], "recipe": recipe, "blocked": "true" if blocked else "false"}
         values["policy_sha"] = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+        request["policy_revision"] = values["policy_sha"]
+        output.write_text(json.dumps(request, indent=2) + "\n")
     with open(os.environ["GITHUB_OUTPUT"], "a") as stream:
         for key, value in values.items():
             stream.write(f"{key}={value}\n")
@@ -55,14 +57,14 @@ def publish():
     request = json.loads(Path("request.json").read_text())
     patch = Path("result/candidate.patch")
     if request["role"] == "implementer" and patch.exists() and patch.stat().st_size:
-        pr = candidate_pr(Path("candidate"), request, patch, Path("result/verification.json"))
+        pr = candidate_pr(Path("candidate"), request, patch, Path("result/verification.json"), Path("result/summary.md"))
         if pr:
             Path("result/pr.json").write_text(json.dumps(pr))
             print(pr["html_url"])
             # Actions-created PRs do not automatically trigger another workflow.
             default = api(f"repos/{request['repo']}")["default_branch"]
             api(f"repos/{request['repo']}/actions/workflows/darkbloom-work.yml/dispatches",
-                {"ref": default, "inputs": {"issue": str(pr["number"]), "mode": "review", "recipe": request["recipe"]}})
+                {"ref": default, "inputs": {"issue": str(pr["number"]), "mode": "review", "recipe": json.loads(Path("result/verification.json").read_text())["recipe"]}})
 
 
 def final_state():
@@ -70,6 +72,8 @@ def final_state():
     status, checks = "failed", []
     summary = "The run stopped before all checks completed. No passing result is being claimed."
     next_step = "Inspect the failed step in the linked run, then request a retry."
+    if Path("result/failure.json").exists():
+        summary = json.loads(Path("result/failure.json").read_text())["reason"]
     if Path("result/verification.json").exists():
         receipt = json.loads(Path("result/verification.json").read_text())
         if receipt["source"] != request["source"]:
@@ -131,5 +135,12 @@ def project():
     github.project(state["repo"], state["thread"], state["status"], policy["project_owner"], policy["project_number"])
 
 
+def start_project():
+    request = json.loads(Path("request.json").read_text())
+    policy = json.loads((ROOT / "policy.json").read_text())
+    github.project(request["repo"], request["thread"], "working", policy["project_owner"], policy["project_number"])
+
+
 if __name__ == "__main__":
-    {"prepare": prepare, "publish": publish, "finish": finish, "project": project}[sys.argv[1]]()
+    {"prepare": prepare, "publish": publish, "finish": finish, "project": project,
+     "start-project": start_project}[sys.argv[1]]()

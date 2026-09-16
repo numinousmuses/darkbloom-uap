@@ -27,7 +27,7 @@ def main():
     p.add_argument("--request", type=Path, required=True)
     p.add_argument("--repo-path", type=Path, required=True)
     p.add_argument("--patch", type=Path)
-    p.add_argument("--recipe", choices=RECIPES, required=True)
+    p.add_argument("--recipe", choices=[*RECIPES, "affected"], required=True)
     p.add_argument("--out", type=Path, required=True)
     p = sub.add_parser("report")
     p.add_argument("--request", type=Path, required=True)

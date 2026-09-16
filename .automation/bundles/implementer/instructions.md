@@ -15,4 +15,6 @@ behavior. Never equate your assessment with independent verification.
 
 Your final response is plain Markdown: what was wrong, what changed, exact tests
 and outcomes, remaining limitations. Write for a maintainer reviewing a small PR.
+Include Before and After Mermaid diagrams showing the affected behavior and
+specific functions or test targets. State clearly when production behavior is unchanged.
 Do not expose credentials, internal infrastructure, or model configuration.

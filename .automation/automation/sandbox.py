@@ -111,6 +111,14 @@ def execute(repo, source, instruction, role, output, *, model, max_turns=40, tim
                                          ("GOTOOLCHAIN", "local"), ("GOSUMDB", "off")],
                             log=output / "agent.log")
     if result.returncode:
+        try:
+            response = json.loads(result.stdout)
+        except (ValueError, UnicodeDecodeError):
+            response = {}
+        reason = "The agent could not complete the task. The operator needs to inspect the execution failure."
+        if response.get("subtype") == "error_max_turns":
+            reason = "The task reached its turn limit before completion. Narrow the request or increase its reviewed limit."
+        (output / "failure.json").write_text(json.dumps({"stage": "execution", "reason": reason}))
         raise RuntimeError(f"Agent process failed ({result.returncode}); inspect private run log")
     response = json.loads(result.stdout)
     if response.get("is_error") or response.get("subtype") != "success":

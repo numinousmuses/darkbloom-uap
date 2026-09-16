@@ -28,7 +28,6 @@ def require_coverage(paths, recipe):
 
 
 def verify(repo, source, patch, recipe, output, timeout=1200, baseline=None):
-    command = RECIPES[recipe]
     output.mkdir(parents=True, exist_ok=True)
     patch_bytes = Path(patch).read_bytes() if patch else b""
     if len(patch_bytes) > 5_000_000:
@@ -44,7 +43,20 @@ def verify(repo, source, patch, recipe, output, timeout=1200, baseline=None):
             changed = run(["git", "diff", "--name-only", "-z"], workspace).stdout
             added = run(["git", "ls-files", "--others", "--exclude-standard", "-z"], workspace).stdout
             paths = [p.decode() for p in (changed + added).split(b"\0") if p]
+            if recipe == "affected":
+                code = [p for p in paths if not (p.startswith("docs/") and p.endswith(".md"))]
+                if not code:
+                    raise ValueError("No code changes covered by the available recipes")
+                if all(p.startswith("coordinator/protocol/") for p in code):
+                    recipe = "protocol"
+                elif all(p.startswith(("coordinator/api/", "coordinator/promptcontract/")) for p in code):
+                    recipe = "responses"
+                else:
+                    recipe = "coordinator"
             require_coverage(paths, recipe)
+        elif recipe == "affected":
+            recipe = "coordinator"
+        command = RECIPES[recipe]
         modcache = module_cache()
         mounts = [(modcache, "/gomod")] if modcache.exists() else []
         result = docker(workspace, command, mounts=mounts, timeout=timeout,

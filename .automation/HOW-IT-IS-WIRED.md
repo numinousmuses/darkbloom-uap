@@ -20,7 +20,10 @@ output-token and request-count limits. These limits are not a monetary budget.
 The agent leaves files, not commits. The host computes a patch using separate
 Git metadata. It rejects changes to automation, workflow, and repository policy
 files. A second container starts from the original source and applies the patch.
-It runs a fixed verification recipe with no model connection. A receipt records
+It runs an accepted verification recipe with no model connection. For requested
+changes, a deterministic path map selects the affected component suite. Existing
+Go regression tests are then restored from the accepted base and rerun, so a
+candidate cannot earn a pass by deleting or skipping them. A receipt records
 the source revision, patch digest, command, exit code, and conclusion.
 
 Only the publication job has GitHub write permissions. It checks the receipt

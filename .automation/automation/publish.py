@@ -12,7 +12,7 @@ from .github import api
 from .sandbox import export, run
 
 
-def candidate_pr(repo_path, request, patch, receipt_path):
+def candidate_pr(repo_path, request, patch, receipt_path, summary_path=None):
     receipt = json.loads(receipt_path.read_text())
     data = patch.read_bytes()
     if receipt["conclusion"] != "passed" or receipt["source"] != request["source"]:
@@ -81,12 +81,14 @@ def candidate_pr(repo_path, request, patch, receipt_path):
         actual = api(f"repos/{repo}/git/commits/{commit['oid']}")
         if actual["tree"]["sha"] != expected_tree:
             raise RuntimeError("Published tree differs from verified patch")
-    body = (f"Addresses #{request['thread']}. This draft contains the candidate produced for that request.\n\n"
+    summary = summary_path.read_text()[:8000] if summary_path and summary_path.exists() else "A candidate is ready for review."
+    summary = summary.replace("<!--", "&lt;!--").replace("@", "@\u200b")
+    body = (f"Addresses #{request['thread']}.\n\n" + summary + "\n\n"
             "Changed files:\n" + "\n".join(f"- `{p}`" for p in paths) + "\n\n"
             f"Independent verification: `{' '.join(receipt['command'])}` passed against the source revision plus this exact patch. "
             "The published commit receives its own CI run. Review the behavior and test coverage before merging.\n\n"
-            "```mermaid\nflowchart LR\n subgraph Before\n A[Reported issue] --> B[Existing implementation]\n B --> C[Missing regression coverage]\n end\n"
-            " subgraph After\n D[Same request] --> E[Candidate implementation]\n E --> F[Regression tests and independent checks]\n F --> G[Maintainer review]\n end\n```\n")
+            "```mermaid\nflowchart LR\n subgraph Before\n A[Requested behavior] --> B[Original implementation and tests]\n end\n"
+            " subgraph After\n D[Same behavior] --> E[Changed code and regression coverage]\n E --> F[Independent checks]\n F --> G[Maintainer review]\n end\n```\n")
     default = api(f"repos/{repo}")["default_branch"]
     pr = api(f"repos/{repo}/pulls", {"title": title, "body": body, "head": branch, "base": default, "draft": True})
     api(f"repos/{repo}/issues/{pr['number']}/labels", {"labels": ["trigger:" + request["trigger"]]})
