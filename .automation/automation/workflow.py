@@ -132,7 +132,9 @@ def finish():
 
 
 def commit_status(state, status):
-    if state["is_pr"]:
+    # A fix receipt covers a new patch, not the original PR head. Its published
+    # draft receives a separate read-only verification run before getting green.
+    if state["is_pr"] and state.get("role") == "reviewer":
         api(f"repos/{state['repo']}/statuses/{state['head']}", {
             "state": status, "context": "Darkbloom / verification", "target_url": state["run_url"],
             "description": "Checks passed; review required" if status == "success" else "Verification incomplete or failed"})

@@ -11,6 +11,15 @@ from automation import workflow
 
 
 class WorkflowTests(unittest.TestCase):
+    def test_proposed_fix_cannot_mark_original_pr_head_verified(self):
+        state = {"repo": "owner/repo", "head": "a" * 40, "is_pr": True,
+                 "role": "implementer", "run_url": "https://github.com/owner/repo/actions/runs/1"}
+        with patch.object(workflow, "api") as api:
+            workflow.commit_status(state, "success")
+            api.assert_not_called()
+            workflow.commit_status({**state, "role": "reviewer"}, "success")
+            self.assertEqual(api.call_args.args[0], "repos/owner/repo/statuses/" + "a" * 40)
+
     def test_failed_check_keeps_findings_and_test_names_in_comment(self):
         with tempfile.TemporaryDirectory() as tmp:
             original = os.getcwd()
