@@ -102,6 +102,8 @@ def final_state():
         status = "passed"
         checks = ["`" + " ".join(receipt["command"]) + "`: passed"]
         summary = Path("result/summary.md").read_text()[:5000].replace("@", "@\u200b")
+        if request["role"] == "reviewer":
+            summary = "Agent assessment follows. Independently rerun checks are listed below.\n\n" + summary
         next_step = "Review the findings and diff. Passing tests do not replace a maintainer's merge decision."
         if Path("result/pr.json").exists():
             pr = json.loads(Path("result/pr.json").read_text())
