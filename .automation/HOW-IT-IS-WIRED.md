@@ -33,6 +33,13 @@ and patch digest, creates a signed commit and draft PR, then explicitly requests
 verification of the published revision. GitHub does not recursively trigger PR
 workflows for PRs created by its workflow token. Agent review findings remain
 advisory even when deterministic tests pass.
+Only read-only verification updates the checked PR's commit status. A requested
+fix produces a separate draft PR; its receipt cannot mark the original head green.
+
+The fork requires the GitHub Actions verification status, an up-to-date branch,
+one approval, and resolved review conversations before merging, including for
+administrators. Updating the verification policy itself remains an operator
+change requiring its integration tests and a reviewed administration action.
 
 One serialized workflow owns comments. It finds the marker only on comments
 authored by its configured identity and edits that comment. It refuses duplicate
