@@ -25,6 +25,8 @@ changes, a deterministic path map selects the affected component suite. Existing
 Go regression tests are then restored from the accepted base and rerun, so a
 candidate cannot earn a pass by deleting or skipping them. A receipt records
 the source revision, patch digest, command, exit code, and conclusion.
+The test environment disables Datadog container-origin enrichment. The existing
+metric assertions expect application tags without a runner-specific container ID.
 
 Only the publication job has GitHub write permissions. It checks the receipt
 and patch digest, creates a signed commit and draft PR, then explicitly requests
@@ -40,6 +42,8 @@ failed run requires operator reconciliation before retrying publication. GitHub
 does not offer transactional create-if-absent comments. A canceled whole workflow
 can leave an in-progress comment until the next run; this is not yet an automatic
 recovery service.
+The comment retains links to the five previous runs in a collapsed history.
+Failed checks retain the agent's advisory findings and list failing Go tests.
 
 The Project is a projection, not a queue. Its update runs independently of the
 comment update and needs a credential with organization Project access. A failed

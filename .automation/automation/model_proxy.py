@@ -32,13 +32,13 @@ def gateway(path, model, max_requests=100):
             try:
                 size = int(self.headers.get("Content-Length", "0"))
                 path = urlsplit(self.path).path
-                if path not in ("/v1/messages", "/v1/messages/count_tokens"):
-                    self.send_error(404)
-                    return
                 if not 0 < size <= 8_000_000:
                     self.send_error(413)
                     return
                 body = self.rfile.read(size)
+                if path not in ("/v1/messages", "/v1/messages/count_tokens"):
+                    self.send_error(404)
+                    return
                 data = json.loads(body)
                 if data.get("model") != model or data.get("max_tokens", 1) > 64000:
                     self.send_error(403)

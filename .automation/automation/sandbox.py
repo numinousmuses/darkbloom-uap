@@ -108,7 +108,8 @@ def execute(repo, source, instruction, role, output, *, model, max_turns=40, tim
                             environment=[("ANTHROPIC_BASE_URL", "http://127.0.0.1:8181"),
                                          ("ANTHROPIC_API_KEY", "sandbox-no-credential"),
                                          ("GOMODCACHE", "/gomod"), ("GOPROXY", "off"),
-                                         ("GOTOOLCHAIN", "local"), ("GOSUMDB", "off")],
+                                         ("GOTOOLCHAIN", "local"), ("GOSUMDB", "off"),
+                                         ("DD_ORIGIN_DETECTION_ENABLED", "false")],
                             log=output / "agent.log")
     if result.returncode:
         try:

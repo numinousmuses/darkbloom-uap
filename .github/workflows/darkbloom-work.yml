@@ -40,7 +40,7 @@ jobs:
     permissions:
       contents: read
       issues: write
-      pull-requests: read
+      pull-requests: write
     outputs:
       accepted: ${{ steps.prepare.outputs.accepted }}
       source: ${{ steps.prepare.outputs.source }}
@@ -63,7 +63,7 @@ jobs:
         env:
           PYTHONPATH: .automation
           GH_TOKEN: ${{ github.token }}
-      - if: steps.prepare.outputs.accepted == 'true'
+      - if: always() && steps.prepare.outputs.accepted == 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: request
