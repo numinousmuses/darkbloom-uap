@@ -122,9 +122,9 @@ top-level type scanner (`scanTopLevelString`, `coordinator/protocol/type_scan.go
 — are held to `encoding/json` by Go fuzz targets. `FuzzChunkFrameDecode`
 (`coordinator/protocol/chunk_scan_test.go`) covers the chunk fast path;
 `FuzzScanTopLevelString` (`coordinator/protocol/type_scan_fuzz_test.go`) covers
-the generic type lookup. Both require no panic on untrusted bytes and, whenever
-a scanner reports a value, agreement with the reference decode; neither requires
-the partial scanners to be full JSON validators. Run a short active session
+the generic type lookup. Both require no panic on untrusted bytes. The type scanner is compared with
+`encoding/json` only when the reference decode succeeds and the scanned value
+is valid UTF-8. The partial type scanner need not reject every invalid JSON input. Run a short active session
 (seeds run as ordinary unit tests without `-fuzz`):
 
 ```bash

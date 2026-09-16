@@ -7,39 +7,10 @@ import (
 	"unicode/utf8"
 )
 
-// FuzzScanTopLevelString holds the general envelope type scanner
-// (scanTopLevelString) to its "never-wrong" contract against encoding/json.
-// This complements FuzzChunkFrameDecode, which targets only the concrete
-// inference_response_chunk fast path; this target exercises the generic
-// top-level "type" lookup that ProviderMessage.UnmarshalJSON runs for every
-// non-chunk frame.
-//
-// Two properties, and only these two, are enforced:
-//
-//  1. No panic on any input — malformed JSON, truncation, invalid UTF-8, or
-//     hostile nesting. The scanner is a byte walk that the read loop feeds
-//     untrusted provider bytes; it must never crash.
-//
-//  2. Never-wrong: whenever the scanner reports a value AND encoding/json
-//     accepts the same bytes as a JSON document, the scanner's value must equal
-//     the reference envelope's Type. The comparison is gated on the scanned
-//     bytes being valid UTF-8: the scanner returns the raw bytes between the
-//     quotes, whereas encoding/json substitutes U+FFFD for invalid UTF-8 in a
-//     string value, so a byte comparison would spuriously differ there. That
-//     divergence is not a scanner defect — production runs the same
-//     UnmarshalJSON on both paths (a type string with invalid UTF-8 matches no
-//     known type constant and errors identically) — so it is excluded rather
-//     than asserted. The scanner bails on every backslash escape, so invalid
-//     UTF-8 is the *only* way its raw value can differ from encoding/json's
-//     decoded string; gating on utf8.Valid makes the invariant exact.
-//
-// Deliberately NOT enforced: that the scanner is a full JSON validator. It
-// accepts inputs encoding/json rejects (trailing garbage after a closed
-// object, a second document, invalid UTF-8) because the caller re-runs the
-// concrete json.Unmarshal, which reports the same error the old envelope pass
-// did. Requiring the partial scanner to reject those would test a property the
-// production code never relies on. The assertion is therefore only made when
-// the reference decode succeeds.
+// FuzzScanTopLevelString checks that untrusted frames never panic. For valid
+// JSON and UTF-8 values, successful scans must agree with encoding/json.
+// The scanner is partial: the full decoder rejects trailing garbage, and
+// encoding/json replaces invalid UTF-8 while the scanner returns raw bytes.
 func FuzzScanTopLevelString(f *testing.F) {
 	// Seeds: valid frames the scanner should read on the fast path.
 	f.Add([]byte(`{"type":"heartbeat","status":"idle"}`))
@@ -58,8 +29,8 @@ func FuzzScanTopLevelString(f *testing.F) {
 	f.Add([]byte(`{"Type":"heartbeat"}`))
 
 	// Seeds: escaped keys/values the scanner defers.
-	f.Add([]byte(`{"note":1,"type":"heartbeat"}`))
-	f.Add([]byte(`{"type":"heartbeat"}`))
+	f.Add([]byte(`{"\u0074ype":"heartbeat"}`))
+	f.Add([]byte(`{"type":"heart\u0062eat"}`))
 
 	// Seeds: malformed / truncated / non-object / trailing-garbage / two docs.
 	f.Add([]byte(``))
@@ -79,7 +50,9 @@ func FuzzScanTopLevelString(f *testing.F) {
 	// Seeds: bounded deep nesting (iterative in the scanner; encoding/json has
 	// its own depth guard). Kept well under the length cap and small enough to
 	// stay inside encoding/json's max-depth budget.
-	f.Add([]byte(strings.Repeat(`{"a":`, 200) + `1` + strings.Repeat(`}`, 200) + `,"type":"x"`))
+	nested := strings.Repeat(`{"a":`, 200) + `1` + strings.Repeat(`}`, 200)
+	f.Add([]byte(`{"nested":` + nested + `,"type":"heartbeat"}`))
+	f.Add([]byte(nested + `,"type":"x"`))
 
 	f.Fuzz(func(t *testing.T, data []byte) {
 		// Bound the body: skip large inputs so a single execution stays cheap
