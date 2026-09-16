@@ -50,8 +50,13 @@ def render(state):
         lines += ["", "**Next:** " + state["next"]]
     if state.get("run_url"):
         lines += ["", f"[Run details]({state['run_url']})"]
+    if state.get("history"):
+        lines += ["", "<details><summary>Previous runs</summary>", ""]
+        lines += [f"- [{run['status']}]({run['run_url']}) at `{run['source'][:12]}`" for run in state["history"]]
+        lines += ["", "</details>"]
     # Compact state is for reconciliation. All facts needed by a person are above it.
     saved = {k: state[k] for k in ("request_id", "order", "trigger", "source", "status")}
+    saved.update(run_url=state.get("run_url", ""), history=state.get("history", []))
     lines += ["", "<!-- darkbloom-state:" + json.dumps(saved, separators=(",", ":")) + " -->"]
     return "\n".join(lines)
 
@@ -69,6 +74,10 @@ def upsert_status(repo, thread, state, author, *, call=api, list_comments=None):
         old = metadata(owned[0]["body"])
         if old.get("order", -1) > state["order"]:
             return owned[0]
+        history = old.get("history", [])[:5]
+        if old.get("order") != state["order"] and old.get("run_url"):
+            history = [{k: old[k] for k in ("status", "source", "run_url")}, *history][:5]
+        state = {**state, "history": history}
         # CI verifies an agent-created PR without erasing why the work was created.
         if old.get("trigger") in ("instructed", "schedule") and state["trigger"] == "ci":
             state = {**state, "trigger": old["trigger"]}

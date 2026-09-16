@@ -67,6 +67,7 @@ def verify(repo, source, patch, recipe, output, timeout=1200, baseline=None):
         if recipe != "release-scripts" and result.returncode == 0:
             # A proposed edit cannot delete or neutralize its own regression gate.
             # Restore accepted tests, preserving newly added test files, then rerun.
+            changed_tests = False
             with tempfile.TemporaryFile() as archive:
                 subprocess.run(["git", "archive", baseline or source, "coordinator"], cwd=repo, stdout=archive, check=True)
                 archive.seek(0)
@@ -76,13 +77,18 @@ def verify(repo, source, patch, recipe, output, timeout=1200, baseline=None):
                             target = workspace / member.name
                             if target.is_symlink() or not target.resolve().is_relative_to(workspace.resolve()):
                                 raise ValueError("Candidate redirected an accepted test path")
-                            target.parent.mkdir(parents=True, exist_ok=True)
-                            target.write_bytes(tar.extractfile(member).read())
-            preserved = docker(workspace, command, mounts=mounts, timeout=timeout,
-                               environment=[("GOMODCACHE", "/gomod"), ("GOPROXY", "off"),
-                                            ("GOTOOLCHAIN", "local"), ("GOSUMDB", "off")],
-                               log=output / "accepted-tests.log")
-            baseline_exit = preserved.returncode
+                            accepted = tar.extractfile(member).read()
+                            if not target.exists() or target.read_bytes() != accepted:
+                                changed_tests = True
+                                target.parent.mkdir(parents=True, exist_ok=True)
+                                target.write_bytes(accepted)
+            baseline_exit = 0
+            if changed_tests:
+                preserved = docker(workspace, command, mounts=mounts, timeout=timeout,
+                                   environment=[("GOMODCACHE", "/gomod"), ("GOPROXY", "off"),
+                                                ("GOTOOLCHAIN", "local"), ("GOSUMDB", "off")],
+                                   log=output / "accepted-tests.log")
+                baseline_exit = preserved.returncode
     receipt = {"schema": 1, "source": source, "patch_sha256": hashlib.sha256(patch_bytes).hexdigest(),
                "recipe": recipe, "command": command, "exit_code": result.returncode,
                "accepted_tests_exit_code": baseline_exit,

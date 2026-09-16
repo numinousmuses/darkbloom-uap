@@ -52,6 +52,15 @@ class CommentTests(unittest.TestCase):
         self.publish(state(order=3, trigger="ci"))
         self.assertEqual(metadata(self.comments[0]["body"])["trigger"], "instructed")
 
+    def test_recurring_runs_keep_history_without_more_comments(self):
+        self.publish(state(order=2, status="passed", run_url="https://github.com/owner/repo/actions/runs/2"))
+        self.publish(state(order=3, status="working", run_url="https://github.com/owner/repo/actions/runs/3"))
+        self.publish(state(order=3, status="passed", run_url="https://github.com/owner/repo/actions/runs/3"))
+        old = metadata(self.comments[0]["body"])["history"]
+        self.assertEqual(len(old), 1)
+        self.assertTrue(old[0]["run_url"].endswith("/2"))
+        self.assertEqual(len(self.comments), 1)
+
     def test_duplicate_owned_comments_stop_publication(self):
         self.publish(state())
         self.comments *= 2
